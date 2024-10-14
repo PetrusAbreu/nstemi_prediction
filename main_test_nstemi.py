@@ -16,12 +16,8 @@ from eval_results import evaluate_results
 if __name__ == "__main__":
     # system arugments
     sys_parser = argparse.ArgumentParser(add_help=False)
-    sys_parser.add_argument(
-        "--input_data", type=str, default="data/test_data.h5", help="path to data.",
-    )
-    sys_parser.add_argument(
-        "--log_dir", type=str, default="logs/", help="path to dir model weights"
-    )
+    sys_parser.add_argument("--input_data", type=str, default="data/test_data.h5", help="path to data.",)
+    sys_parser.add_argument("--log_dir", type=str, default="logs/", help="path to dir model weights")
     settings, _ = sys_parser.parse_known_args()
 
     # read config file
@@ -30,24 +26,30 @@ if __name__ == "__main__":
         mydict = json.load(json_file)
     config = Namespace(**mydict)
 
+    # Set device
     config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tqdm.write("Use device: {device:}\n".format(device=config.device))
 
     # -----------------------------------------------------------------------------
     # Dataloader
     # -----------------------------------------------------------------------------
+    tqdm.write("Building data loaders...")
     dataset = MyECGDataset(settings.input_data)
-    test_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=config.batch_size, shuffle=False
-    )
+    test_loader = torch.utils.data.DataLoader(dataset, batch_size=config.batch_size, shuffle=False)
+    tqdm.write("Done!\n")
 
     # -----------------------------------------------------------------------------
     # Model
     # -----------------------------------------------------------------------------
+    tqdm.write("Define model...")
     model = EnsembleECGModel(config, settings.log_dir)
+    tqdm.write("Done!\n")
 
     # -----------------------------------------------------------------------------
     # Test run
     # -----------------------------------------------------------------------------
+    tqdm.write("Running test...")
+    
     all_probs = []
     all_labels = []
     all_ids = []
@@ -86,4 +88,7 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------------
     # Evaluation
     # -----------------------------------------------------------------------------
+    tqdm.write("Evaluate results...")
     evaluate_results(os.path.join(settings.log_dir, "logits.csv"))
+    tqdm.write("Done!\n")
+    
