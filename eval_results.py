@@ -2,28 +2,33 @@ import argparse
 import pandas as pd
 from sklearn import metrics
 from tqdm import tqdm
-
+import numpy as np
 
 def evaluate_results(log_file):
     # read the logits file
     pred = pd.read_csv(log_file)
     
     
-    pred['logits'] = pred['logits'].str.replace(r'\[\s*', '', regex=True)
-    pred['logits'] = pred['logits'].str.replace(r'\s*\]', '', regex=True)
-    s = pred['logits'].str.split('\s+', expand=True)
-    pred = pd.concat([pred, s.rename(columns = {0:'pr_control', 1:'pr_stemi', 2:'pr_nstemi'})], axis=1)
-    pred['prob_mi'] = pred['pr_stemi'].astype('float') + pred['pr_nstemi'].astype('float')
-
-    # C-statistic / AUROC
-    metrics.roc_auc_score(pred['labels'], pred['prob_mi'])
-    # pr
-    metrics.average_precision_score(pred['labels'], pred['prob_mi'])
+    # Clean brackets
+    pred['logits'] = pred['logits'].str.replace(r'[\[\]]', '', regex=True)
     
-    # print the results
+    # Convert string to array of floats
+    logits_array = pred['logits'].apply(lambda x: np.fromstring(x, sep=' ') if isinstance(x, str) else np.array([np.nan, np.nan, np.nan]))
+    
+    # Split into separate columns
+    pred[['pr_control', 'pr_stemi', 'pr_nstemi']] = pd.DataFrame(logits_array.tolist(), index=pred.index)
+    
+    # Combine MI predictions
+    pred['prob_mi'] = pred['pr_stemi'] + pred['pr_nstemi']
+    
+    # Evaluate metrics - C-statistic / AUROC and pr
+    roc_auc = metrics.roc_auc_score(pred['labels'], pred['prob_mi'])
+    pr_auc = metrics.average_precision_score(pred['labels'], pred['prob_mi'])
+    
+    # Output
     tqdm.write(f"Results: control vs MI (STEMI+NSTEMI)")
-    tqdm.write(f"ROC AUC: {metrics.roc_auc_score(pred['labels'], pred['prob_mi']):.4f}")
-    tqdm.write(f"PR AUC: {metrics.average_precision_score(pred['labels'], pred['prob_mi']):.4f}")
+    tqdm.write(f"ROC AUC: {roc_auc:.4f}")
+    tqdm.write(f"PR AUC: {pr_auc:.4f}")    
 
 # main
 if __name__ == "__main__":
